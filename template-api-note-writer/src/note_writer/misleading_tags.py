@@ -2,7 +2,7 @@ import json
 from typing import List
 
 from data_models import MisleadingTag, Post
-from note_writer.llm_util import get_grok_response
+from note_writer.llm_util import get_gemini_response
 
 
 def get_misleading_tags(
@@ -13,7 +13,7 @@ def get_misleading_tags(
     )
     while retries > 0:
         try:
-            misleading_why_tags_str = get_grok_response(misleading_why_tags_prompt)
+            misleading_why_tags_str = get_gemini_response(misleading_why_tags_prompt)
             misleading_why_tags = json.loads(misleading_why_tags_str)["misleading_tags"]
             return [MisleadingTag(tag) for tag in misleading_why_tags]
         except Exception as e:
