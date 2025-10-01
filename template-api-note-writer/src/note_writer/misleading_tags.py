@@ -14,7 +14,6 @@ def get_misleading_tags(
     while retries > 0:
         try:
             misleading_why_tags_str = get_gemini_response(misleading_why_tags_prompt)
-            print("[LLM_DEBUG] raw model output (first 1000 chars):", repr(misleading_why_tags_str)[:1000])
             s = misleading_why_tags_str.strip()
             if s.startswith("```json"):
                 s = s[len("```json"):].strip()
@@ -25,7 +24,6 @@ def get_misleading_tags(
             misleading_why_tags = json.loads(s)["misleading_tags"]
             return [MisleadingTag(tag) for tag in misleading_why_tags]
         except Exception as e:
-            print("[LLM_DEBUG] Exception:", repr(e))
             retries -= 1
             if retries == 0:
                 raise e
