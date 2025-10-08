@@ -1,9 +1,12 @@
 import argparse
+import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 from cnapi.get_api_eligible_posts import get_posts_eligible_for_notes
 from cnapi.submit_note import submit_note
+from cnapi.evaluate_note import evaluate_note as eval_note
 from data_models import NoteResult, Post, PostWithContext
 import dotenv
 from note_writer.write_note import research_post_and_write_note
@@ -35,6 +38,27 @@ def _worker(
         )
 
     if note_result.note is not None and not dry_run:
+        # Evaluate note quality prior to submission
+        try:
+            eval_response = eval_note(
+                note_text=note_result.note.note_text,
+                post_id=note_result.note.post_id,
+            )
+            claim_score = None
+            if isinstance(eval_response, dict):
+                data = eval_response.get("data") or {}
+                claim_score = data.get("claim_opinion_score")
+            log_strings.append(
+                f"\n*CLAIM_OPINION_SCORE:* {claim_score}\n"
+            )
+            step_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+            if step_summary_path:
+                with open(step_summary_path, "a") as f:
+                    f.write(
+                        f"- Post {note_result.note.post_id}: claim_opinion_score={claim_score}\n"
+                    )
+        except Exception as e:
+            log_strings.append(f"\n*EVALUATION ERROR:* {e}\n")
         try:
             submit_note(
                 note=note_result.note,
@@ -60,6 +84,10 @@ def main(
     """
 
     print(f"Getting up to {num_posts} recent posts eligible for notes")
+    step_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if step_summary_path:
+        with open(step_summary_path, "a") as f:
+            f.write("### Community Notes Evaluation Results\n")
     eligible_posts: List[PostWithContext] = get_posts_eligible_for_notes(max_results=num_posts)
     print(f"Found {len(eligible_posts)} recent posts eligible for notes")
     print(
